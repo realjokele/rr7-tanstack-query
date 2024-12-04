@@ -1,26 +1,48 @@
-import { Link } from "react-router"
-import { Route } from "./+types/query"
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { Route } from "./+types/query";
+
+import { Link } from "react-router";
+
+import { queryClient } from "~/utils/query";
+import { useQuery } from "@tanstack/react-query";
 
 export function loader({ request }: Route.LoaderArgs) {
-  console.log("loader")
+  console.log("loader");
   return {
-    status: new Date()
-  }
+    status: new Date(),
+  };
 }
+
+const queryDetails = (loader: () => Promise<{ status: Date }>) => ({
+  queryKey: ["status"],
+  queryFn: async () => await loader(),
+});
 
 export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
-  console.log("client loader")
-  const data = await serverLoader()
-  return data
+  console.log("clientLoader");
+  const data = queryClient.getQueryData<ReturnType<typeof serverLoader>>([
+    "status",
+  ]);
+
+  if (!data) {
+    const serverData = await serverLoader();
+    queryClient.setQueryData(["status"], serverData);
+    return serverData;
+  }
+
+  return data;
 }
 
+clientLoader.hydrate = true;
+
 export default function Login({
-  loaderData: { status }
+  loaderData: { status },
 }: Route.ComponentProps) {
   return (
     <div className="font-semibold text-blue-800">
       Login {status.toLocaleTimeString()}
       <Link to="/">Home</Link>
+      <ReactQueryDevtools client={queryClient} initialIsOpen={false} />
     </div>
-  )
+  );
 }
