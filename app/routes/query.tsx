@@ -1,48 +1,55 @@
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { Route } from "./+types/query";
+import { useQuery } from "@tanstack/react-query"
+import { Route } from "./+types/query"
 
-import { Link } from "react-router";
+import { Link, useFetcher } from "react-router"
 
-import { queryClient } from "~/utils/query";
-import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "~/utils/query-client"
 
 export function loader({ request }: Route.LoaderArgs) {
-  console.log("loader");
+  console.log("loader")
   return {
-    status: new Date(),
-  };
+    status: new Date()
+  }
 }
-
-const queryDetails = (loader: () => Promise<{ status: Date }>) => ({
-  queryKey: ["status"],
-  queryFn: async () => await loader(),
-});
 
 export async function clientLoader({ serverLoader }: Route.ClientLoaderArgs) {
-  console.log("clientLoader");
-  const data = queryClient.getQueryData<ReturnType<typeof serverLoader>>([
+  console.log("clientLoader")
+  const cachedData = queryClient.getQueryData<ReturnType<typeof serverLoader>>([
     "status",
-  ]);
+    "date"
+  ])
 
-  if (!data) {
-    const serverData = await serverLoader();
-    queryClient.setQueryData(["status"], serverData);
-    return serverData;
+  if (!cachedData) {
+    console.log("clientLoader: Reload data")
+    const serverData = await serverLoader()
+    queryClient.setQueryData(["status", "date"], serverData)
+    return serverData
   }
 
-  return data;
+  return cachedData
 }
 
-clientLoader.hydrate = true;
+clientLoader.hydrate = true as const
 
-export default function Login({
-  loaderData: { status },
-}: Route.ComponentProps) {
+export default function Login({}: Route.ComponentProps) {
+  const fetcher = useFetcher()
+  const { data } = useQuery<Route.ComponentProps["loaderData"]>({
+    queryKey: ["status", "date"],
+    gcTime: 1000
+  })
+  if (!data) return <div>Loading</div>
+  const status = data.status
   return (
     <div className="font-semibold text-blue-800">
       Login {status.toLocaleTimeString()}
-      <Link to="/">Home</Link>
-      <ReactQueryDevtools client={queryClient} initialIsOpen={false} />
+      <ul>
+        <li>
+          <Link to="/">Home</Link>
+        </li>
+        <li>
+          <Link to="/other-page">Page</Link>
+        </li>
+      </ul>
     </div>
-  );
+  )
 }
